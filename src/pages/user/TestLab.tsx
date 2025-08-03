@@ -462,11 +462,34 @@ const TestLab = () => {
                 <div className="grid grid-cols-2 gap-4 text-sm">
                   <div><strong>Status:</strong> {viewingScript.status}</div>
                   <div><strong>Test Type:</strong> {viewingScript.testType}</div>
+                  <div><strong>Test Environment:</strong> {viewingScript.testEnvironment}</div>
+                  <div><strong>Script ID:</strong> {viewingScript.scriptId}</div>
                 </div>
 
                 <div>
                   <h4 className="font-semibold mb-2">Description</h4>
                   <p className="text-sm">{viewingScript.shortDescription}</p>
+                </div>
+
+                <div>
+                  <h4 className="font-semibold mb-2">Purpose</h4>
+                  <p className="text-sm">{viewingScript.purpose}</p>
+                </div>
+
+                {viewingScript.assumptions.length > 0 && (
+                  <div>
+                    <h4 className="font-semibold mb-2">Assumptions</h4>
+                    <ul className="text-sm list-disc list-inside space-y-1">
+                      {viewingScript.assumptions.map((assumption, index) => (
+                        <li key={index}>{assumption}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                <div>
+                  <h4 className="font-semibold mb-2">Expected Results</h4>
+                  <p className="text-sm">{viewingScript.expectedResults}</p>
                 </div>
 
                 <div>
@@ -476,10 +499,64 @@ const TestLab = () => {
                   </div>
                 </div>
 
+                {viewingScript.screenshots.length > 0 && (
+                  <div>
+                    <h4 className="font-semibold mb-2">Reference Screenshots</h4>
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                      {viewingScript.screenshots.map((screenshot) => (
+                        <div key={screenshot.id} className="space-y-1">
+                          <img
+                            src={screenshot.path}
+                            alt={screenshot.description}
+                            className="w-full h-24 object-cover rounded border cursor-pointer hover:opacity-80 transition-opacity"
+                            onClick={() => window.open(screenshot.path, '_blank')}
+                          />
+                          <p className="text-xs text-muted-foreground">{screenshot.description}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {viewingScript.executionScreenshots && viewingScript.executionScreenshots.length > 0 && (
+                  <div>
+                    <h4 className="font-semibold mb-2">Execution Screenshots</h4>
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                      {viewingScript.executionScreenshots.map((screenshot) => (
+                        <div key={screenshot.id} className="space-y-1">
+                          <img
+                            src={screenshot.path}
+                            alt={screenshot.filename}
+                            className="w-full h-24 object-cover rounded border cursor-pointer hover:opacity-80 transition-opacity"
+                            onClick={() => window.open(screenshot.path, '_blank')}
+                          />
+                          <p className="text-xs text-muted-foreground">{screenshot.filename}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
                 {viewingScript.remarks && (
                   <div>
                     <h4 className="font-semibold mb-2">Execution Remarks</h4>
                     <p className="text-sm">{viewingScript.remarks}</p>
+                  </div>
+                )}
+
+                {viewingScript.issueIds.length > 0 && (
+                  <div>
+                    <h4 className="font-semibold mb-2">Linked Issues</h4>
+                    <div className="flex flex-wrap gap-2">
+                      {viewingScript.issueIds.map((issueId) => {
+                        const issue = issues.find(i => i.id === issueId);
+                        return issue ? (
+                          <Badge key={issueId} variant="destructive">
+                            Issue #{issue.issueNumber}: {issue.title}
+                          </Badge>
+                        ) : null;
+                      })}
+                    </div>
                   </div>
                 )}
               </div>
