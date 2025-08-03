@@ -382,7 +382,8 @@ const TestLab = () => {
                             key={screenshot.id}
                             src={screenshot.path}
                             alt={screenshot.filename}
-                            className="w-full h-20 object-cover rounded border"
+                            className="w-full h-20 object-cover rounded border cursor-pointer hover:opacity-80 transition-opacity"
+                            onClick={() => window.open(screenshot.path, '_blank')}
                           />
                         ))}
                       </div>
