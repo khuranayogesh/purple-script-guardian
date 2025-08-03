@@ -12,7 +12,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { StorageService } from '@/utils/storage';
 import { ImportedScript, Issue, Screenshot } from '@/types';
-import { Play, Pause, Target, CheckCircle, AlertTriangle, Eye, Upload } from 'lucide-react';
+import { Play, Pause, Target, CheckCircle, AlertTriangle, Eye, Upload, X, ZoomIn } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 
 const TestLab = () => {
@@ -21,10 +21,12 @@ const TestLab = () => {
   const [issues, setIssues] = useState<Issue[]>([]);
   const [executingScript, setExecutingScript] = useState<ImportedScript | null>(null);
   const [viewingScript, setViewingScript] = useState<ImportedScript | null>(null);
+  const [viewingImage, setViewingImage] = useState<Screenshot | null>(null);
   const [remarks, setRemarks] = useState('');
   const [newIssueTitle, setNewIssueTitle] = useState('');
   const [newIssueDescription, setNewIssueDescription] = useState('');
   const [selectedIssue, setSelectedIssue] = useState('');
+  const [issueOption, setIssueOption] = useState('none');
   const [executionScreenshots, setExecutionScreenshots] = useState<Screenshot[]>([]);
 
   useEffect(() => {
@@ -36,7 +38,7 @@ const TestLab = () => {
     const projectScripts = allImportedScripts.filter(s => s.projectId === projectId);
     const allIssues = StorageService.getIssues();
     const projectIssues = allIssues.filter(i => i.projectId === projectId);
-    
+
     setScripts(projectScripts);
     setIssues(projectIssues);
   };
@@ -60,6 +62,7 @@ const TestLab = () => {
     setExecutingScript(script);
     setRemarks(script.remarks || '');
     setExecutionScreenshots(script.executionScreenshots || []);
+    setIssueOption('none');
     setSelectedIssue('');
     setNewIssueTitle('');
     setNewIssueDescription('');
@@ -97,7 +100,7 @@ const TestLab = () => {
     StorageService.updateImportedScript(executingScript.id, updatedScript);
     loadData();
     setExecutingScript(null);
-    
+
     toast({
       title: "Success",
       description: "Script marked as complete"
@@ -105,12 +108,15 @@ const TestLab = () => {
   };
 
   const handleRaiseIssue = () => {
-    if (!executingScript || (!selectedIssue && !newIssueTitle)) return;
+    if (!executingScript || issueOption === 'none') return;
+    
+    if (issueOption === 'existing' && !selectedIssue) return;
+    if (issueOption === 'new' && !newIssueTitle) return;
 
     let issueId = selectedIssue;
 
     // Create new issue if needed
-    if (!selectedIssue && newIssueTitle) {
+    if (issueOption === 'new' && newIssueTitle) {
       const newIssue: Issue = {
         id: Date.now().toString(),
         issueNumber: StorageService.getNextIssueNumber(projectId!),
@@ -123,7 +129,7 @@ const TestLab = () => {
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
       };
-      
+
       StorageService.addIssue(newIssue);
       issueId = newIssue.id;
     }
@@ -140,7 +146,7 @@ const TestLab = () => {
     StorageService.updateImportedScript(executingScript.id, updatedScript);
     loadData();
     setExecutingScript(null);
-    
+
     toast({
       title: "Success",
       description: "Issue raised successfully"
@@ -160,7 +166,7 @@ const TestLab = () => {
     StorageService.updateImportedScript(executingScript.id, updatedScript);
     loadData();
     setExecutingScript(null);
-    
+
     toast({
       title: "Success",
       description: "Progress saved"
@@ -219,6 +225,30 @@ const TestLab = () => {
     }
   };
 
+  const ImageWithPreview = ({ screenshot, className }: { screenshot: Screenshot; className?: string }) => (
+    <div className="relative group">
+      <img
+        src={screenshot.path}
+        alt={screenshot.description || screenshot.filename}
+        className={`${className} transition-opacity`}
+      />
+      <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-30 transition-all duration-200 flex items-center justify-center opacity-0 group-hover:opacity-100">
+        <Button
+          size="sm"
+          variant="secondary"
+          className="bg-background/90 hover:bg-background"
+          onClick={(e) => {
+            e.stopPropagation();
+            setViewingImage(screenshot);
+          }}
+        >
+          <ZoomIn className="h-4 w-4 mr-1" />
+          View
+        </Button>
+      </div>
+    </div>
+  );
+
   const ScriptCard = ({ script }: { script: ImportedScript }) => (
     <Card className="hover:shadow-md transition-shadow">
       <CardContent className="p-4">
@@ -239,7 +269,7 @@ const TestLab = () => {
               <p className="text-xs text-muted-foreground">Remarks: {script.remarks}</p>
             )}
           </div>
-          
+
           <div className="flex space-x-2">
             <Button
               variant="ghost"
@@ -286,7 +316,7 @@ const TestLab = () => {
               {getScriptsByStatus(status).map((script) => (
                 <ScriptCard key={script.id} script={script} />
               ))}
-              
+
               {getScriptsByStatus(status).length === 0 && (
                 <Card>
                   <CardContent className="flex items-center justify-center py-12">
@@ -306,7 +336,7 @@ const TestLab = () => {
             <DialogHeader>
               <DialogTitle>Execute Script: {executingScript?.scriptId}</DialogTitle>
             </DialogHeader>
-            
+
             {executingScript && (
               <div className="space-y-6">
                 <div className="grid grid-cols-2 gap-4 text-sm">
@@ -330,12 +360,10 @@ const TestLab = () => {
                     <h4 className="font-semibold mb-2">Reference Screenshots</h4>
                     <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
                       {executingScript.screenshots.map((screenshot) => (
-                        <img
+                        <ImageWithPreview
                           key={screenshot.id}
-                          src={screenshot.path}
-                          alt={screenshot.description}
+                          screenshot={screenshot}
                           className="w-full h-24 object-cover rounded border cursor-pointer"
-                          onClick={() => window.open(screenshot.path, '_blank')}
                         />
                       ))}
                     </div>
@@ -374,16 +402,14 @@ const TestLab = () => {
                         Upload Screenshots
                       </Button>
                     </div>
-                    
+
                     {executionScreenshots.length > 0 && (
                       <div className="grid grid-cols-3 gap-2 mt-2">
                         {executionScreenshots.map((screenshot) => (
-                          <img
+                          <ImageWithPreview
                             key={screenshot.id}
-                            src={screenshot.path}
-                            alt={screenshot.filename}
+                            screenshot={screenshot}
                             className="w-full h-20 object-cover rounded border cursor-pointer hover:opacity-80 transition-opacity"
-                            onClick={() => window.open(screenshot.path, '_blank')}
                           />
                         ))}
                       </div>
@@ -391,40 +417,54 @@ const TestLab = () => {
                   </div>
 
                   <div className="space-y-4">
-                    <h4 className="font-semibold">Raise Issue (Optional)</h4>
-                    
                     <div>
-                      <Label>Link to Existing Issue</Label>
-                      <Select value={selectedIssue} onValueChange={setSelectedIssue}>
+                      <Label>Raise Issue (Optional)</Label>
+                      <Select value={issueOption} onValueChange={setIssueOption}>
                         <SelectTrigger>
-                          <SelectValue placeholder="Select existing issue" />
+                          <SelectValue placeholder="Select an option" />
                         </SelectTrigger>
-                        <SelectContent className="bg-card border border-border">
-                          {issues.map((issue) => (
-                            <SelectItem key={issue.id} value={issue.id}>
-                              Issue #{issue.issueNumber}: {issue.title}
-                            </SelectItem>
-                          ))}
+                        <SelectContent className="bg-card border border-border z-50">
+                          <SelectItem value="none">No Issue</SelectItem>
+                          <SelectItem value="existing">Link to Existing Issue</SelectItem>
+                          <SelectItem value="new">Create New Issue</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
 
-                    <div className="text-center text-sm text-muted-foreground">OR</div>
+                    {issueOption === 'existing' && (
+                      <div>
+                        <Label>Select Existing Issue</Label>
+                        <Select value={selectedIssue} onValueChange={setSelectedIssue}>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select existing issue" />
+                          </SelectTrigger>
+                          <SelectContent className="bg-card border border-border z-50">
+                            {issues.map((issue) => (
+                              <SelectItem key={issue.id} value={issue.id}>
+                                Issue #{issue.issueNumber}: {issue.title}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    )}
 
-                    <div className="space-y-2">
-                      <Label>Create New Issue</Label>
-                      <Input
-                        value={newIssueTitle}
-                        onChange={(e) => setNewIssueTitle(e.target.value)}
-                        placeholder="Issue title"
-                      />
-                      <Textarea
-                        value={newIssueDescription}
-                        onChange={(e) => setNewIssueDescription(e.target.value)}
-                        placeholder="Issue description"
-                        rows={3}
-                      />
-                    </div>
+                    {issueOption === 'new' && (
+                      <div className="space-y-2">
+                        <Label>Create New Issue</Label>
+                        <Input
+                          value={newIssueTitle}
+                          onChange={(e) => setNewIssueTitle(e.target.value)}
+                          placeholder="Issue title"
+                        />
+                        <Textarea
+                          value={newIssueDescription}
+                          onChange={(e) => setNewIssueDescription(e.target.value)}
+                          placeholder="Issue description"
+                          rows={3}
+                        />
+                      </div>
+                    )}
                   </div>
                 </div>
 
@@ -435,7 +475,10 @@ const TestLab = () => {
                   <Button variant="outline" onClick={handleSave}>
                     Save
                   </Button>
-                  {(selectedIssue || newIssueTitle) && (
+                  {issueOption !== 'none' && (
+                    (issueOption === 'existing' && selectedIssue) || 
+                    (issueOption === 'new' && newIssueTitle)
+                  ) && (
                     <Button variant="destructive" onClick={handleRaiseIssue}>
                       <AlertTriangle className="h-4 w-4 mr-2" />
                       Raise Issue
@@ -457,7 +500,7 @@ const TestLab = () => {
             <DialogHeader>
               <DialogTitle>View Script: {viewingScript?.scriptId}</DialogTitle>
             </DialogHeader>
-            
+
             {viewingScript && (
               <div className="space-y-4">
                 <div className="grid grid-cols-2 gap-4 text-sm">
@@ -506,11 +549,9 @@ const TestLab = () => {
                     <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
                       {viewingScript.screenshots.map((screenshot) => (
                         <div key={screenshot.id} className="space-y-1">
-                          <img
-                            src={screenshot.path}
-                            alt={screenshot.description}
+                          <ImageWithPreview
+                            screenshot={screenshot}
                             className="w-full h-24 object-cover rounded border cursor-pointer hover:opacity-80 transition-opacity"
-                            onClick={() => window.open(screenshot.path, '_blank')}
                           />
                           <p className="text-xs text-muted-foreground">{screenshot.description}</p>
                         </div>
@@ -525,11 +566,9 @@ const TestLab = () => {
                     <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
                       {viewingScript.executionScreenshots.map((screenshot) => (
                         <div key={screenshot.id} className="space-y-1">
-                          <img
-                            src={screenshot.path}
-                            alt={screenshot.filename}
+                          <ImageWithPreview
+                            screenshot={screenshot}
                             className="w-full h-24 object-cover rounded border cursor-pointer hover:opacity-80 transition-opacity"
-                            onClick={() => window.open(screenshot.path, '_blank')}
                           />
                           <p className="text-xs text-muted-foreground">{screenshot.filename}</p>
                         </div>
@@ -558,6 +597,43 @@ const TestLab = () => {
                         ) : null;
                       })}
                     </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
+
+        {/* Image Preview Modal */}
+        <Dialog open={!!viewingImage} onOpenChange={() => setViewingImage(null)}>
+          <DialogContent className="max-w-6xl max-h-[90vh] p-0 overflow-hidden">
+            <DialogHeader className="p-6 pb-0">
+              <DialogTitle>
+                {viewingImage?.description || viewingImage?.filename || 'Screenshot Preview'}
+              </DialogTitle>
+            </DialogHeader>
+            
+            {viewingImage && (
+              <div className="p-6 pt-2">
+                <div className="flex justify-center items-center bg-muted rounded-lg overflow-hidden">
+                  <img
+                    src={viewingImage.path}
+                    alt={viewingImage.description || viewingImage.filename}
+                    className="max-w-full max-h-[70vh] object-contain"
+                    style={{ minHeight: '200px' }}
+                  />
+                </div>
+                
+                {viewingImage.description && (
+                  <div className="mt-4 p-4 bg-muted rounded-lg">
+                    <p className="text-sm font-medium mb-1">Description:</p>
+                    <p className="text-sm text-muted-foreground">{viewingImage.description}</p>
+                  </div>
+                )}
+                
+                {viewingImage.filename && (
+                  <div className="mt-2 text-center">
+                    <p className="text-xs text-muted-foreground">Filename: {viewingImage.filename}</p>
                   </div>
                 )}
               </div>

@@ -22,16 +22,36 @@ const IssueLog = () => {
 
   const loadData = () => {
     const allIssues = StorageService.getIssues();
-    const projectIssues = allIssues.filter(i => i.projectId === projectId);
+    // Migrate existing issues from single scriptId to scriptIds array
+    const migratedIssues = migrateExistingIssues(allIssues);
+    const projectIssues = migratedIssues.filter(i => i.projectId === projectId);
     const allImportedScripts = StorageService.getImportedScripts();
     const projectScripts = allImportedScripts.filter(s => s.projectId === projectId);
-    
+
     setIssues(projectIssues);
     setScripts(projectScripts);
   };
 
+  // Migration function for existing issues
+  const migrateExistingIssues = (issues: any[]): Issue[] => {
+    return issues.map(issue => {
+      if (issue.scriptId && !issue.scriptIds) {
+        return {
+          ...issue,
+          scriptIds: [issue.scriptId], // Convert single scriptId to array
+          scriptId: undefined // Remove old field
+        };
+      }
+      return issue;
+    });
+  };
+
   const getScriptById = (scriptId: string) => {
     return scripts.find(s => s.id === scriptId);
+  };
+
+  const getScriptsByIds = (scriptIds: string[]) => {
+    return scriptIds.map(id => scripts.find(s => s.id === id)).filter(Boolean);
   };
 
   const handleMarkFixed = (issueId: string) => {
@@ -41,7 +61,7 @@ const IssueLog = () => {
     });
     loadData();
     setViewingIssue(null);
-    
+
     toast({
       title: "Success",
       description: "Issue marked as fixed"
@@ -55,9 +75,9 @@ const IssueLog = () => {
     });
     loadData();
     setViewingIssue(null);
-    
+
     toast({
-      title: "Success", 
+      title: "Success",
       description: "Issue reopened"
     });
   };
@@ -84,11 +104,20 @@ const IssueLog = () => {
     }
   };
 
+  const formatRelatedScripts = (scriptIds: string[]) => {
+    if (scriptIds.length === 0) return 'No scripts linked';
+    if (scriptIds.length === 1) {
+      const script = getScriptById(scriptIds[0]);
+      return script?.scriptId || 'Unknown Script';
+    }
+    return `${scriptIds.length} scripts linked`;
+  };
+
   return (
     <Layout>
       <div className="space-y-6">
         <div>
-          <h1 className="text-3xl font-bold bg-gradient-primary bg-clip-text text-transparent">
+          <h1 className="text-3xl font-bold text-foreground">
             Issue Log
           </h1>
           <p className="text-muted-foreground">
@@ -108,11 +137,11 @@ const IssueLog = () => {
               </div>
             </CardContent>
           </Card>
-          
+
           <Card>
             <CardContent className="p-4">
               <div className="flex items-center space-x-2">
-                <CheckCircle className="h-5 w-5 text-success" />
+                <CheckCircle className="h-5 w-5 text-green-500" />
                 <div>
                   <p className="text-2xl font-bold">{issues.filter(i => i.status === 'fixed').length}</p>
                   <p className="text-sm text-muted-foreground">Fixed Issues</p>
@@ -120,7 +149,7 @@ const IssueLog = () => {
               </div>
             </CardContent>
           </Card>
-          
+
           <Card>
             <CardContent className="p-4">
               <div className="flex items-center space-x-2">
@@ -151,7 +180,6 @@ const IssueLog = () => {
             issues
               .sort((a, b) => b.issueNumber - a.issueNumber)
               .map((issue) => {
-                const script = getScriptById(issue.scriptId);
                 return (
                   <Card key={issue.id} className="hover:shadow-md transition-shadow">
                     <CardContent className="p-6">
@@ -166,12 +194,12 @@ const IssueLog = () => {
                               {issue.status}
                             </Badge>
                           </div>
-                          
+
                           <p className="text-muted-foreground">{issue.description}</p>
-                          
+
                           <div className="text-sm text-muted-foreground space-y-1">
                             <p>
-                              <strong>Script:</strong> {script?.scriptId || 'Unknown Script'}
+                              <strong>Related Scripts:</strong> {formatRelatedScripts(issue.scriptIds || [])}
                             </p>
                             <p>
                               <strong>Created:</strong> {new Date(issue.createdAt).toLocaleString()}
@@ -188,7 +216,7 @@ const IssueLog = () => {
                             )}
                           </div>
                         </div>
-                        
+
                         <div className="flex space-x-2">
                           <Button
                             variant="outline"
@@ -214,7 +242,7 @@ const IssueLog = () => {
                 Issue #{viewingIssue?.issueNumber}: {viewingIssue?.title}
               </DialogTitle>
             </DialogHeader>
-            
+
             {viewingIssue && (
               <div className="space-y-6">
                 <div className="flex items-center space-x-2">
@@ -230,10 +258,26 @@ const IssueLog = () => {
                 </div>
 
                 <div>
-                  <h4 className="font-semibold mb-2">Related Script</h4>
-                  <p className="text-sm">
-                    {getScriptById(viewingIssue.scriptId)?.scriptId || 'Unknown Script'}
-                  </p>
+                  <h4 className="font-semibold mb-2">Related Scripts</h4>
+                  <div className="space-y-2">
+                    {viewingIssue.scriptIds && viewingIssue.scriptIds.length > 0 ? (
+                      viewingIssue.scriptIds.map((scriptId, index) => {
+                        const script = getScriptById(scriptId);
+                        return (
+                          <div key={scriptId} className="flex items-center space-x-2">
+                            <Badge variant="outline" className="text-xs">
+                              {index + 1}
+                            </Badge>
+                            <p className="text-sm">
+                              {script?.scriptId || `Unknown Script (ID: ${scriptId})`}
+                            </p>
+                          </div>
+                        );
+                      })
+                    ) : (
+                      <p className="text-sm text-muted-foreground">No scripts linked to this issue</p>
+                    )}
+                  </div>
                 </div>
 
                 <div className="grid grid-cols-2 gap-4 text-sm">
@@ -267,23 +311,23 @@ const IssueLog = () => {
                 )}
 
                 <div className="flex justify-end space-x-2">
-                  <Button 
-                    variant="outline" 
+                  <Button
+                    variant="outline"
                     onClick={() => setViewingIssue(null)}
                   >
                     Close
                   </Button>
-                  
+
                   {viewingIssue.status === 'open' || viewingIssue.status === 'reopened' ? (
-                    <Button 
+                    <Button
                       onClick={() => handleMarkFixed(viewingIssue.id)}
-                      className="bg-success"
+                      className="bg-green-600 hover:bg-green-700"
                     >
                       <CheckCircle className="h-4 w-4 mr-2" />
                       Mark as Fixed
                     </Button>
                   ) : (
-                    <Button 
+                    <Button
                       variant="destructive"
                       onClick={() => handleReopen(viewingIssue.id)}
                     >
