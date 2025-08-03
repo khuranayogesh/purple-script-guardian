@@ -42,7 +42,7 @@ const FolderManagement = () => {
     if (editingFolder) {
       StorageService.updateFolder(editingFolder.id, {
         name: name.trim(),
-        parentId: parentId || undefined
+        parentId: parentId === 'root' ? undefined : parentId || undefined
       });
       toast({
         title: "Success",
@@ -52,7 +52,7 @@ const FolderManagement = () => {
       const newFolder: Folder = {
         id: Date.now().toString(),
         name: name.trim(),
-        parentId: parentId || undefined,
+        parentId: parentId === 'root' ? undefined : parentId || undefined,
         icon: 'folder'
       };
       StorageService.addFolder(newFolder);
@@ -70,7 +70,7 @@ const FolderManagement = () => {
   const handleEdit = (folder: Folder) => {
     setEditingFolder(folder);
     setName(folder.name);
-    setParentId(folder.parentId || '');
+    setParentId(folder.parentId || 'root');
     setIsDialogOpen(true);
   };
 
@@ -87,7 +87,7 @@ const FolderManagement = () => {
 
   const resetForm = () => {
     setName('');
-    setParentId('');
+    setParentId('root');
     setEditingFolder(null);
   };
 
@@ -175,7 +175,7 @@ const FolderManagement = () => {
                       <SelectValue placeholder="Select parent folder (or leave blank for root)" />
                     </SelectTrigger>
                     <SelectContent className="bg-card border border-border">
-                      <SelectItem value="">None (Root folder)</SelectItem>
+                      <SelectItem value="root">None (Root folder)</SelectItem>
                       {getParentFolders().map(folder => (
                         <SelectItem key={folder.id} value={folder.id}>
                           {folder.name}
