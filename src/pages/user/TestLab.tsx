@@ -50,7 +50,7 @@ const TestLab = () => {
       case 'pending':
         return scripts.filter(s => s.status === 'pending' || s.status === 'in-progress');
       case 'with-issues':
-        return scripts.filter(s => s.issueIds.length > 0);
+        return scripts.filter(s => s.issueIds.length > 0 && s.status !== 'completed');
       default:
         return scripts;
     }
